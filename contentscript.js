@@ -308,6 +308,18 @@ function sweepTwitterFields() {
 }
 
 function sweepYouTubeFields() {
+  // Clean the share dialog URL input — this is the box that appears when you
+  // click Share on a video, showing the youtu.be link with ?si= tracker
+  document.querySelectorAll('yt-copy-link-renderer input, #share-url, input[id="share-url"]').forEach(input => {
+    const val = input.value;
+    if (!val) return;
+    const cleaned = extractAndClean(val);
+    if (cleaned !== val) {
+      const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      if (nativeSetter) nativeSetter.call(input, cleaned); else input.value = cleaned;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
   const sel = [
     '#contenteditable-root[contenteditable]',
     'ytd-commentbox [contenteditable]',
