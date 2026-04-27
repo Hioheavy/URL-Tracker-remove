@@ -1,12 +1,12 @@
-literally Just put the three files(background.js, contentscript.js, manifest.json) in a folder and go to the extension settings and unpack the folder
+Put the three files(background.js, contentscript.js, manifest.json) in a folder and go to the extension settings and unpack the folder
 
 Vibed :T
 
-Note doesn't work on reddit's site but does on Reddit links
 
-Works With YT,Amazon,Ebay,Reddit(Links only, not pasting to site), Twitter/X, Facebook(should), Instagram links.
+Works With YT,Amazon,Ebay,Reddit, Twitter/X, Facebook(should), Instagram links.
 
-
+(Sometimes you just want a clean link to give to someone.)
+Instagram link ex- So they don't get a notif when they click on a insta reel and have a pop-up "sent by *Name* you should follow them")
 
 
 I use these extensions with it
