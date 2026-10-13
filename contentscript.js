@@ -14,40 +14,33 @@ const TRACKER_PARAMS = new Set([
 
 // Per-domain extra params — pre-merged with TRACKER_PARAMS into ready-to-use Sets
 // so cleanUrl never rebuilds a Set at runtime.
-const DOMAIN_PARAMS_RAW = new Map([
-  ['youtube.com',    ['si','ab_channel','pp']],
-  ['youtu.be',       ['si']],
-  ['google.com',     ['ved','usg','sa','oq']],
-  ['amazon.com',     ['ref','ref_','content-id','dib','dib_tag','keywords','sp_csd','crid','sprefix','social_share',
-                      'smid','tag','creativeASIN','linkCode','linkId',
-                      'pf_rd_p','pf_rd_r','pf_rd_t','pf_rd_i','pf_rd_m',
-                      'pd_rd_r','pd_rd_w','pd_rd_wg','pd_rd_i','pd_rd_p','pd_rd_d','qid','sr']],
-  ['twitter.com',    ['t','s','ref_src','ref_url']],
-  ['x.com',          ['t','s','ref_src','ref_url']],
-  ['reddit.com',     ['share','rdt']],                          // removed: context (shows parent comments), sort (functional)
-  ['spotify.com',    ['si','sp_cid']],
-  ['facebook.com',   ['fbclid','fb_action_ids','fb_action_types','fb_source','rdid','share_url']],
-  ['linkedin.com',   ['trackingId','trk','trkInfo','lipi','licu']],
-  ['pinterest.com',  ['rwa_pos','epik','clickId']],
-  ['tiktok.com',     ['sec_user_id']],
-  ['instagram.com',  ['igshid','igsh']],
-  ['twitch.tv',      ['tt']],
-  ['medium.com',     ['sk']],
-  ['github.com',     ['cid']],
-  ['calendly.com',   []],                                        // removed: back/month/date/session_type_id all control the UI
-  ['mastodon.social',['s']],
-  ['ebay.com',       ['mkevt','mkcid','mkrid','campid','toolid','customid','amdata',
-                      'stype','widget_ver','media','_trkparms','_trksid']],  // removed: hash (anchor), ul_noapp (visual)
-  ['etsy.com',       ['ref','frs','ga_order','ga_search_type','ga_view_type','ga_search_query','organic_search_click']], // removed: listing_id (functional), sts (uncertain), from_page
-  ['snapchat.com',   ['sc_channel','sc_source','sc_medium','sc_campaign','sc_content','sc_clickid','sc_country']],
-]);
-
-// Pre-merge: each domain gets TRACKER_PARAMS ∪ its own extras, built once at load
 const DOMAIN_PARAMS = new Map(
-  [...DOMAIN_PARAMS_RAW].map(([domain, extras]) => [
-    domain,
-    new Set([...TRACKER_PARAMS, ...extras]),
-  ])
+  [
+    ['youtube.com',    ['si','ab_channel','pp']],
+    ['youtu.be',       ['si']],
+    ['google.com',     ['ved','usg','sa','oq']],
+    ['amazon.com',     ['ref','ref_','content-id','dib','dib_tag','keywords','sp_csd','crid','sprefix','social_share',
+                        'smid','tag','creativeASIN','linkCode','linkId',
+                        'pf_rd_p','pf_rd_r','pf_rd_t','pf_rd_i','pf_rd_m',
+                        'pd_rd_r','pd_rd_w','pd_rd_wg','pd_rd_i','pd_rd_p','pd_rd_d','qid','sr']],
+    ['twitter.com',    ['t','s','ref_src','ref_url']],
+    ['x.com',          ['t','s','ref_src','ref_url']],
+    ['reddit.com',     ['share','rdt']],
+    ['spotify.com',    ['si','sp_cid']],
+    ['facebook.com',   ['fbclid','fb_action_ids','fb_action_types','fb_source','rdid','share_url']],
+    ['linkedin.com',   ['trackingId','trk','trkInfo','lipi','licu']],
+    ['pinterest.com',  ['rwa_pos','epik','clickId']],
+    ['tiktok.com',     ['sec_user_id']],
+    ['instagram.com',  ['igshid','igsh']],
+    ['twitch.tv',      ['tt']],
+    ['medium.com',     ['sk']],
+    ['github.com',     ['cid']],
+    ['mastodon.social',['s']],
+    ['ebay.com',       ['mkevt','mkcid','mkrid','campid','toolid','customid','amdata',
+                        'stype','widget_ver','media','_trkparms','_trksid']],
+    ['etsy.com',       ['ref','frs','ga_order','ga_search_type','ga_view_type','ga_search_query','organic_search_click']],
+    ['snapchat.com',   ['sc_channel','sc_source','sc_medium','sc_campaign','sc_content','sc_clickid','sc_country']],
+  ].map(([domain, extras]) => [domain, new Set([...TRACKER_PARAMS, ...extras])])
 );
 
 const REDIRECT_UNWRAPPERS = [
@@ -129,13 +122,8 @@ const cleanedLinks = new WeakSet();
 function cleanLink(link) {
   if (cleanedLinks.has(link)) return;
   cleanedLinks.add(link);
-  const unwrapped = unwrapRedirect(link.href);
-  if (unwrapped) {
-    link.href = cleanUrl(unwrapped).url;
-  } else {
-    const result = cleanUrl(link.href);
-    if (result.wasModified) link.href = result.url;
-  }
+  const cleaned = extractAndClean(link.href);
+  if (cleaned !== link.href) link.href = cleaned;
 }
 
 function cleanLinksIn(root) {
@@ -154,9 +142,8 @@ function interceptHistory(method) {
     if (url) {
       try {
         const abs = url.startsWith('http') ? url : new URL(url, location.href).href;
-        const unwrapped = unwrapRedirect(abs);
-        const result = cleanUrl(unwrapped ?? abs);
-        if (result.wasModified) url = result.url;
+        const cleaned = extractAndClean(abs);
+        if (cleaned !== abs) url = cleaned;
       } catch { /* leave url unchanged */ }
     }
     return original(state, title, url);
@@ -170,11 +157,8 @@ interceptHistory('replaceState');
 
 // Clean the address bar URL immediately on page load.
 function cleanAddressBar() {
-  const unwrapped = unwrapRedirect(location.href);
-  const result = cleanUrl(unwrapped ?? location.href);
-  if (result.wasModified) {
-    history.replaceState(history.state, '', result.url);
-  }
+  const cleaned = extractAndClean(location.href);
+  if (cleaned !== location.href) history.replaceState(history.state, '', cleaned);
 }
 
 // Run address bar cleaning as early as possible — don't wait for DOMContentLoaded
@@ -196,9 +180,10 @@ function handleLinkClick(e) {
 }
 document.addEventListener('mousedown', handleLinkClick, true);
 document.addEventListener('touchstart', handleLinkClick, true);
-document.addEventListener('click',      handleLinkClick, true);
 
 // ========== PASTE HANDLER ==========
+
+const isEditable = v => v === 'true' || v === 'plaintext-only';
 
 document.addEventListener('paste', (e) => {
   const text = e.clipboardData?.getData('text/plain');
@@ -218,7 +203,6 @@ document.addEventListener('paste', (e) => {
     target.dispatchEvent(new Event('input',  { bubbles: true }));
     target.dispatchEvent(new Event('change', { bubbles: true }));
   } else {
-    const isEditable = v => v === 'true' || v === 'plaintext-only';
     const editor = isEditable(target.contentEditable)
       ? target
       : target.closest('[contenteditable="true"],[contenteditable="plaintext-only"]');
@@ -242,8 +226,8 @@ const _nativeTASetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prot
 const _nativeINSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,    'value')?.set;
 
 function setNativeValue(el, value) {
-  (el instanceof HTMLTextAreaElement ? _nativeTASetter : _nativeINSetter)?.call(el, value)
-    ?? (el.value = value);
+  const setter = el instanceof HTMLTextAreaElement ? _nativeTASetter : _nativeINSetter;
+  if (setter) setter.call(el, value); else el.value = value;
   el.dispatchEvent(new Event('input',  { bubbles: true }));
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
@@ -307,27 +291,29 @@ function sweepTwitterFields() {
   });
 }
 
+const YT_SHARE_SEL = 'yt-copy-link-renderer input,#share-url,input[id="share-url"]';
+const YT_EDITOR_SEL = [
+  '#contenteditable-root[contenteditable]',
+  'ytd-commentbox [contenteditable]',
+  'ytd-comment-simplebox-renderer [contenteditable]',
+  'ytd-backstage-post-dialog-renderer [contenteditable]',
+  'yt-formatted-string[contenteditable]',
+  '#placeholder-area[contenteditable]',
+].join(',');
+
 function sweepYouTubeFields() {
   // Clean the share dialog URL input — this is the box that appears when you
   // click Share on a video, showing the youtu.be link with ?si= tracker
-  document.querySelectorAll('yt-copy-link-renderer input, #share-url, input[id="share-url"]').forEach(input => {
+  document.querySelectorAll(YT_SHARE_SEL).forEach(input => {
     const val = input.value;
     if (!val) return;
     const cleaned = extractAndClean(val);
     if (cleaned !== val) {
-      const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-      if (nativeSetter) nativeSetter.call(input, cleaned); else input.value = cleaned;
+      if (_nativeINSetter) _nativeINSetter.call(input, cleaned); else input.value = cleaned;
       input.dispatchEvent(new Event('input', { bubbles: true }));
     }
   });
-  const sel = [
-    '#contenteditable-root[contenteditable]',
-    'ytd-commentbox [contenteditable]',
-    'ytd-comment-simplebox-renderer [contenteditable]',
-    'ytd-backstage-post-dialog-renderer [contenteditable]',
-    'yt-formatted-string[contenteditable]',
-    '#placeholder-area[contenteditable]',
-  ].join(',');
+  const sel = YT_EDITOR_SEL;
 
   sweepEditableFields(sel, (editor, raw, cleaned) => {
     editor.focus();
@@ -380,12 +366,12 @@ function getPostUrl(el) {
     const permalink = post.getAttribute('permalink') || post.getAttribute('content-href');
     if (permalink) {
       const abs = permalink.startsWith('http') ? permalink : 'https://www.reddit.com' + permalink;
-      return cleanUrl(abs).url;
+      return extractAndClean(abs);
     }
     const titleLink = post.querySelector('a[data-click-id="body"],a[data-click-id="title"],h1 a,h2 a,h3 a');
-    if (titleLink?.href) return cleanUrl(titleLink.href).url;
+    if (titleLink?.href) return extractAndClean(titleLink.href);
   }
-  return cleanUrl(location.href).url;
+  return extractAndClean(location.href);
 }
 
 function makeCopyBtn(anchor) {
