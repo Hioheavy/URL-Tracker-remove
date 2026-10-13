@@ -13,8 +13,6 @@ I use these extensions with it
 
 Remove URL Trackers (this)
 
-Dark Reader (https://chromewebstore.google.com/detail/dark-reader/eimadpbcbfnmbkopoojfekhnkhdbieeh),
-
 Ruffle - (Flash Emulator https://chromewebstore.google.com/detail/ruffle-flash-emulator/donbcfbmhbcapadipfkeojnmajbakjdc)
 
 Snowflake https://chromewebstore.google.com/detail/snowflake/mafpmfcccpbjnhfhjnllmmalhifmlcie)
